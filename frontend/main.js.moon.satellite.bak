@@ -1,0 +1,153 @@
+// Set up the scene, camera, and renderer
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Function to handle window resizing
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onWindowResize);
+
+// Add ambient light and directional light
+const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(1, 1, 1).normalize();
+scene.add(directionalLight);
+
+// Function to create a color gradient background
+function createBackground() {
+    const geometry = new THREE.SphereGeometry(10000, 32, 32);
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x000000, // Dark color for night sky
+        side: THREE.BackSide
+    });
+    const background = new THREE.Mesh(geometry, material);
+    scene.add(background);
+}
+
+// Function to create a dense star field with realistic colors and twinkling effect
+function createStarField() {
+    const starCount = 20000;
+    const starGeometry = new THREE.BufferGeometry();
+    const starMaterial = new THREE.PointsMaterial({ size: 0.5 });
+
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+
+    for (let i = 0; i < starCount; i++) {
+        // Generate a random point within a sphere
+        const theta = Math.random() * 2 * Math.PI;
+        const phi = Math.acos(1 - 2 * Math.random());
+        const radius = Math.cbrt(Math.random()) * 10000; // cbrt to ensure uniform distribution in 3D
+
+        const x = radius * Math.sin(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi) * Math.sin(theta);
+        const z = radius * Math.cos(phi);
+
+        starPositions[i * 3] = x;
+        starPositions[i * 3 + 1] = y;
+        starPositions[i * 3 + 2] = z;
+
+        // Randomize star colors
+        const color = new THREE.Color();
+        color.setHSL(Math.random(), 0.8, Math.random() * 0.5 + 0.5); // Hue, Saturation, Lightness
+        starColors[i * 3] = color.r;
+        starColors[i * 3 + 1] = color.g;
+        starColors[i * 3 + 2] = color.b;
+
+        // Randomize star sizes
+        starSizes[i] = Math.random() * 1.5 + 0.5;
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+
+    starMaterial.vertexColors = true;
+
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // Animate star twinkling
+    function animateStars() {
+        const time = Date.now() * 0.002;
+        for (let i = 0; i < starCount; i++) {
+            starSizes[i] = Math.sin(time + i * 0.1) * 1.5 + 0.5; // Twinkling effect
+        }
+        starGeometry.attributes.size.needsUpdate = true;
+        requestAnimationFrame(animateStars);
+    }
+    animateStars();
+}
+
+// Function to create a simple moon
+function createMoon() {
+    const geometry = new THREE.SphereGeometry(200, 64, 64);
+    const moonMaterial = new THREE.MeshStandardMaterial({
+        color: 0xAAAAAA, // Light gray color for moon
+        roughness: 1,
+        metalness: 0
+    });
+
+    const moon = new THREE.Mesh(geometry, moonMaterial);
+    moon.position.set(1500, 1500, -3000); // Adjusted position
+    scene.add(moon);
+
+    return moon; // Return the moon object for later use
+}
+
+// Function to create and animate a satellite orbiting the moon
+function createSatellite(moon) {
+    const geometry = new THREE.SphereGeometry(50, 16, 16);
+    const satelliteMaterial = new THREE.MeshStandardMaterial({
+        color: 0x999999, // Gray color for satellite
+        roughness: 1,
+        metalness: 0
+    });
+
+    const satellite = new THREE.Mesh(geometry, satelliteMaterial);
+    scene.add(satellite);
+
+    // Orbit parameters
+    const orbitRadius = 500; // Distance from the moon
+    let angle = 0;
+
+    function animateSatellite() {
+        angle += 0.01; // Adjust speed of orbit
+        satellite.position.x = moon.position.x + orbitRadius * Math.cos(angle);
+        satellite.position.z = moon.position.z + orbitRadius * Math.sin(angle);
+        satellite.position.y = moon.position.y;
+
+        requestAnimationFrame(animateSatellite);
+    }
+    animateSatellite();
+}
+
+// Call the functions to create the background, star field, moon, and satellite
+createBackground();
+const moon = createMoon();
+createStarField();
+createSatellite(moon);
+
+// Position the camera
+camera.position.z = 2000;
+
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+
+    // Optionally, add some rotation to the scene for a dynamic effect
+    scene.rotation.y += 0.0005;
+
+    renderer.render(scene, camera);
+}
+
+animate();
